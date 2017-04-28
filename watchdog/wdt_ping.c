@@ -20,8 +20,7 @@
 	exit(EXIT_SUCCESS);\
 }
 
-static struct option long_options[] =
-{
+static struct option long_options[] = {
 	{"count", required_argument, 0, 'c'},
 	{"name", required_argument, 0, 'n'},
 	{"time", required_argument, 0, 't'},
@@ -38,44 +37,42 @@ int main(int argc, char *const *argv)
 	int pingtime = DEFAULT_PINGTIME;
 	char device[PATH_MAX] = DEFAULT_WATCHDOG;
 
-	while (1)
-	{
+	while (1) {
 		int option_index = 0;
 
-		opt = getopt_long(argc, argv, "c:hn:t:", long_options, &option_index);
+		opt =
+		    getopt_long(argc, argv, "c:hn:t:", long_options,
+				&option_index);
 
 		if (opt == -1)
 			break;
 
-		switch (opt)
-		{
-			case 'c':
-				pingtimes = atoi(optarg);
-				break;
-			case 'n':
-				memset(device, 0, PATH_MAX);
-				memcpy(device, optarg, strlen(optarg));
-				break;
-			case 't':
-				pingtime = atoi(optarg);
-				break;
-			case 'h':
-			case '?':
-			default:
-				SHOW_HELP(argv[0]);
+		switch (opt) {
+		case 'c':
+			pingtimes = atoi(optarg);
+			break;
+		case 'n':
+			memset(device, 0, PATH_MAX);
+			memcpy(device, optarg, strlen(optarg));
+			break;
+		case 't':
+			pingtime = atoi(optarg);
+			break;
+		case 'h':
+		case '?':
+		default:
+			SHOW_HELP(argv[0]);
 		}
 	}
 
 	fd = open(device, O_WRONLY);
 
-	if (fd == -1)
-	{
+	if (fd == -1) {
 		perror("watchdog");
 		exit(EXIT_FAILURE);
 	}
 
-	while (1)
-	{
+	while (1) {
 		if (write(fd, "\0", 1) != -1)
 			printf("Succeed to ping watchdog device: %s\n", device);
 		else
