@@ -23,14 +23,46 @@
 	exit(EXIT_SUCCESS);\
 }
 
+void wdt_disablewatchdog(void);
+void wdt_enablewatchdog(void);
+void wdt_get_support(void);
+void wdt_get_bootstatus(void);
+void wdt_get_timeleft(void);
+void wdt_get_timeout(void);
+void wdt_ping(void);
+void wdt_set_watchdogdevice(char *path);
+void wdt_set_timeout(int timeout);
+void wdt_set_pingmode(void);
+void wdt_set_pingtime(int second);
+void wdt_set_pingtimes(int count);
+void wdt_exit(void);
+
 struct menu
 {
 	int id;
 	void (*func)();
-} main_menu[16];
+	char desc[64];
+};
 
+struct menu main_menu[] = 
+{
+	{ 0, wdt_disablewatchdog, "%d) Disable watchdog device\n" },
+	{ 1, wdt_enablewatchdog, "%d) Enable watchdog device\n" },
+	{ 2, wdt_get_support, "%d) Get watchdog support\n" },
+	{ 3, wdt_get_bootstatus, "%d) Get boot status\n" },
+	{ 4, wdt_get_timeleft, "%d) Get watchdog timeleft\n" },
+	{ 5, wdt_get_timeout, "%d) Get watchdog timeout\n" },
+	{ 6, wdt_ping, "%d) Ping watchdog\n" },
+	{ 7, wdt_set_watchdogdevice, "%d) Set watchdog device (%s)\n" },
+	{ 8, wdt_set_timeout, "%d) Set watchdog timeout\n" },
+	{ 9, wdt_set_pingmode, "%d) Set ping mode (%d)\n" },
+	{ 10, wdt_set_pingtime, "%d) Set ping time (%d)\n" },
+	{ 11, wdt_set_pingtimes, "%d) Set ping times (%d)\n" },
+	{ 12, wdt_exit, "%d) Exit\n" }
+};
+
+static int items = sizeof(main_menu) / sizeof(struct menu);
 static int ping_items = 0;
-static int items = 0;
 
 int fd = 0;
 int opt = 0;
@@ -40,63 +72,25 @@ int pingtimes = DEFAULT_PINGTIMES;
 int exit_flag = 0;
 char device[PATH_MAX] = DEFAULT_WATCHDOG;
 
+#define ITEM(fmt, args...) { printf(fmt, ##args); }
+
 #define MENU()\
 {\
 	int index = 0;\
-	printf("%d) Disable watchdog device\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_disablewatchdog;\
-	index++;\
-	printf("%d) Enable watchdog device\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_enablewatchdog;\
-	index++;\
-	printf("%d) Get watchdog support\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_get_support;\
-	index++;\
-	printf("%d) Get boot status\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_get_bootstatus;\
-	index++;\
-	printf("%d) Get watchdog timeleft\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_get_timeleft;\
-	index++;\
-	printf("%d) Get watchdog timeout\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_get_timeout;\
-	index++;\
-	printf("%d) Ping watchdog\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_ping;\
-	index++;\
-	printf("%d) Set watchdog device (%s)\n", index, device);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_set_watchdogdevice;\
-	index++;\
-	printf("%d) Set watchdog timeout\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_set_timeout;\
-	index++;\
-	printf("%d) Set ping mode (%d)\n", index, pingmode);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_set_pingmode;\
-	index++;\
-	printf("%d) Set ping time (%d)\n", index, pingtime);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_set_pingtime;\
-	index++;\
-	printf("%d) Set ping times (%d)\n", index, pingtimes);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_set_pingtimes;\
-	index++;\
-	printf("%d) Exit\n", index);\
-	main_menu[index].id = index;\
-	main_menu[index].func = wdt_exit;\
-	index++;\
+	for (index = 0; index != items ; index++)\
+	{\
+		if (main_menu[index].func == wdt_set_watchdogdevice)\
+			ITEM(main_menu[index].desc, index, device)\
+		else if (main_menu[index].func == wdt_set_pingmode)\
+			ITEM(main_menu[index].desc, index, pingmode)\
+		else if (main_menu[index].func == wdt_set_pingtime)\
+			ITEM(main_menu[index].desc, index, pingtime)\
+		else if (main_menu[index].func == wdt_set_pingtimes)\
+			ITEM(main_menu[index].desc, index, pingtimes)\
+		else\
+			ITEM(main_menu[index].desc, index)\
+	}\
 	printf("\nSelect: ");\
-	items = index;\
 }
 
 #define PING_MODE_MENU()\
@@ -336,7 +330,7 @@ void wdt_ping(void)
 	if (pingmode == PING_MODE_WRITE || pingmode == PING_MODE_IOCTL)
 		wdt_closedevice();
 	else
-		printf("System will reboot after watchdog timeout\n\n");
+		printf("*** WARNING: System will reboot after watchdog timeout ***\n\n");
 }
 
 void wdt_set_watchdogdevice(char *path)
