@@ -11,8 +11,9 @@
 #include <linux/version.h>
 
 #define DEFAULT_SPIDEV "/dev/spidev0.1"
+#define SZ_4K 0x1000
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,30)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 30)
 #define KERNEL_OLD 1
 #else
 #define KERNEL_OLD 0
@@ -41,6 +42,8 @@ enum SPIDEV_MENU_ITEM {
 	SPIDEV_MENU_ITEM_EEPROM_WRITE,
 	SPIDEV_MENU_ITEM_DATA_READ,
 	SPIDEV_MENU_ITEM_DATA_WRITE,
+#else
+	SPIDEV_MENU_ITEM_READ_4K,
 #endif
 	SPIDEV_MENU_ITEM_EXIT,
 	SPIDEV_MENU_ITEM_NUMBER
@@ -70,6 +73,7 @@ static unsigned int show_menu(void)
 	unsigned int select;
 
 	while (1) {
+		char c;
 		printf("%d) read spi mode\n", SPIDEV_MENU_ITEM_RD_MODE);
 		printf("%d) read lsb first\n", SPIDEV_MENU_ITEM_RD_LSB_FIRST);
 		printf("%d) read bits per word\n", SPIDEV_MENU_ITEM_RD_BITS_PER_WORD);
@@ -84,35 +88,22 @@ static unsigned int show_menu(void)
 		printf("%d) eeprom write\n", SPIDEV_MENU_ITEM_EEPROM_WRITE);
 		printf("%d) data read\n", SPIDEV_MENU_ITEM_DATA_READ);
 		printf("%d) data write\n", SPIDEV_MENU_ITEM_DATA_WRITE);
+#else
+		printf("%d) read 4k from flash\n", SPIDEV_MENU_ITEM_READ_4K);
 #endif
 		printf("%d) exit\n", SPIDEV_MENU_ITEM_EXIT);
 		printf("select: ");
 		scanf("%u", &select);
-		fflush(stdin);
+
+		do {
+			c = getchar();
+		} while (c != '\n' && c != EOF);
 
 		if (select >= 0 && select < SPIDEV_MENU_ITEM_NUMBER)
 			break;
 	}
 
 	return select;
-}
-
-int spidev_transfer(int fd, unsigned char *txbuf, unsigned char *rxbuf,int bytes)
-{
-	int ret;
-	struct spi_ioc_transfer tr = {
-		.tx_buf = (unsigned long)txbuf,
-		.rx_buf = (unsigned long)rxbuf,
-		.len = bytes,
-	};
-
-	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-	if (ret < 0)
-	{
-		printf("can't send spi message");
-		return -1;
-	}
-	return ret;
 }
 
 static int spidev_read_mode(int fd, unsigned char *mode)
@@ -139,7 +130,7 @@ static int spidev_write_mode(int fd)
 {
 	unsigned int mode;
 
-	printf("spi mode: \n");
+	printf("spi mode: ");
 	scanf("%u", &mode);
 
 	if (mode >= 0 && mode <= 3) {
@@ -156,7 +147,7 @@ static int spidev_write_lsb_first(int fd)
 {
 	unsigned int first;
 
-	printf("lsb first: \n");
+	printf("lsb first: ");
 	scanf("%u", &first);
 
 	if (first == 0 || first == 1) {
@@ -173,7 +164,7 @@ static int spidev_write_bits_per_word(int fd)
 {
 	unsigned int bits_per_word;
 
-	printf("bits per word: \n");
+	printf("bits per word: ");
 	scanf("%u", &bits_per_word);
 
 	if (bits_per_word == 8 || bits_per_word == 16) {
@@ -190,7 +181,7 @@ static int spidev_write_max_speed_hz(int fd)
 {
 	unsigned int hz;
 
-	printf("max speed (Hz): \n");
+	printf("max speed (Hz): ");
 	scanf("%u", &hz);
 
 	if (!(hz % 1000000)) {
@@ -237,6 +228,45 @@ static int spidev_data_write(int fd, unsigned char *tx, unsigned int txlen)
 	UINT16_TO_UCHARS(txlen, buffer);
 
 	return ioctl(fd, SPI_IOC_DATA_WRITE, buffer);
+}
+#else
+int spidev_read_4k(int fd)
+{
+	struct spi_ioc_transfer transfer[2];
+	FILE *file;
+	unsigned char buf[SZ_4K];
+	int ret;
+
+	memset(buf, 0, SZ_4K);
+	buf[0] = 0xb;
+	buf[1] = 0x0;
+	buf[2] = 0x0;
+	buf[3] = 0x0;
+	buf[4] = 0x0;
+	transfer[0].tx_buf = (__u64)((__u32)buf);
+	transfer[0].len = 5;
+
+	transfer[1].rx_buf = (__u64)((__u32)buf);
+	transfer[1].len = SZ_4K;
+
+	ret = ioctl(fd, SPI_IOC_MESSAGE(2), &transfer);
+	if (ret < 0)
+	{
+		printf("can't send spi message\n");
+		return -1;
+	}
+
+	file = fopen("/tmp/spi_4k", "w");
+	if (file) {
+		fwrite(buf, SZ_4K, 1, file);
+		fclose(file);
+		printf("read 4k succeeded\n");
+	} else {
+		perror("read 4k failed\n");
+		return -1;
+	}
+
+	return ret;
 }
 #endif
 
@@ -339,6 +369,10 @@ int main(int argc, char *const *argv)
 				if (!ret)
 					printf("##### sr: %#x #####\n", buffer[0]);
 			}
+			break;
+#else
+		case SPIDEV_MENU_ITEM_READ_4K:
+			spidev_read_4k(fd);
 			break;
 #endif
 		case SPIDEV_MENU_ITEM_EXIT:
