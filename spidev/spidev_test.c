@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <linux/limits.h>
 #include <asm-generic/errno-base.h>
@@ -235,7 +236,6 @@ int spidev_read_4k(int fd)
 	struct spi_ioc_transfer transfer[2];
 	FILE *file;
 	unsigned char buf[SZ_4K];
-	int ret;
 
 	memset(buf, 0, SZ_4K);
 	buf[0] = 0xb;
@@ -249,11 +249,9 @@ int spidev_read_4k(int fd)
 	transfer[1].rx_buf = (__u64)((__u32)buf);
 	transfer[1].len = SZ_4K;
 
-	ret = ioctl(fd, SPI_IOC_MESSAGE(2), &transfer);
-	if (ret < 0)
-	{
-		printf("can't send spi message\n");
-		return -1;
+	if (ioctl(fd, SPI_IOC_MESSAGE(2), &transfer) < 0) {
+		perror("can't send spi message");
+		return -errno;
 	}
 
 	file = fopen("/tmp/spi_4k", "w");
@@ -262,11 +260,11 @@ int spidev_read_4k(int fd)
 		fclose(file);
 		printf("read 4k succeeded\n");
 	} else {
-		perror("read 4k failed\n");
-		return -1;
+		perror("read 4k failed");
+		return -errno;
 	}
 
-	return ret;
+	return 0;
 }
 #endif
 
