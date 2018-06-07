@@ -20,23 +20,53 @@ TEST_SRC = \
 TEST_OBJS = \
 	spidev_test.o
 
+LOOP_SRC = \
+	spidev_loop.c
+
+LOOP_OBJS = \
+	spidev_loop.o
+
+NOR_SRC = \
+	spidev_nor.c
+
+NOR_OBJS = \
+	spidev_nor.o
+
 SRC = \
-	$(TEST_SRC)
+	$(TEST_SRC) \
+	$(LOOP_SRC) \
+	$(NOR_SRC)
 
 OBJS = \
-	$(TEST_OBJS)
+	$(TEST_OBJS) \
+	$(LOOP_OBJS) \
+	$(NOR_OBJS)
 
 EXEC_FILES = \
-	spidev_test
+	spidev_test \
+	spidev_loop \
+	spidev_nor
 
 .PHONY: all
 
-all: spidev_test
+all: spidev_test spidev_loop spidev_nor
 
 .PHONY: spidev_test
 
 spidev_test: $(TEST_OBJS)
 	$(CC) $(TEST_OBJS) $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
+	$(STRIP) $@
+
+.PHONY: spidev_loop
+
+spidev_loop: $(LOOP_OBJS)
+	$(CC) $(LOOP_OBJS) $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
+	$(STRIP) $@
+
+.PHONY: spidev_nor
+
+spidev_nor: $(NOR_OBJS)
+	$(CC) $(NOR_OBJS) $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
 	$(STRIP) $@
 
 %.o: %.c

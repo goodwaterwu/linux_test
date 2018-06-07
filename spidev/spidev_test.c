@@ -7,20 +7,17 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <linux/limits.h>
+#include <linux/types.h>
 #include <asm-generic/errno-base.h>
 #include <linux/spi/spidev.h>
 #include <linux/version.h>
 
 #define DEFAULT_SPIDEV "/dev/spidev0.1"
-#define SZ_4K 0x1000
+#define SZ_3K 0xc00
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 30)
-#define KERNEL_OLD 1
-#else
-#define KERNEL_OLD 0
-#endif
+#define EEPROM_MODE 0
 
-#if KERNEL_OLD
+#if EEPROM_MODE
 #define SPI_IOC_EEPROM_READ		_IOWR(SPI_IOC_MAGIC, 5, __u32)
 #define SPI_IOC_FLASHID_READ		_IOWR(SPI_IOC_MAGIC, 6, __u32)
 #define SPI_IOC_EEPROM_WRITE		_IOWR(SPI_IOC_MAGIC, 7, __u32)
@@ -37,14 +34,14 @@ enum SPIDEV_MENU_ITEM {
 	SPIDEV_MENU_ITEM_WR_LSB_FIRST,
 	SPIDEV_MENU_ITEM_WR_BITS_PER_WORD,
 	SPIDEV_MENU_ITEM_WR_MAX_SPEED_HZ,
-#if KERNEL_OLD
+#if EEPROM_MODE
 	SPIDEV_MENU_ITEM_EEPROM_READ,
 	SPIDEV_MENU_ITEM_FLASHID_READ,
 	SPIDEV_MENU_ITEM_EEPROM_WRITE,
 	SPIDEV_MENU_ITEM_DATA_READ,
 	SPIDEV_MENU_ITEM_DATA_WRITE,
 #else
-	SPIDEV_MENU_ITEM_READ_4K,
+	SPIDEV_MENU_ITEM_READ_3K,
 #endif
 	SPIDEV_MENU_ITEM_EXIT,
 	SPIDEV_MENU_ITEM_NUMBER
@@ -83,18 +80,20 @@ static unsigned int show_menu(void)
 		printf("%d) write lsb first\n", SPIDEV_MENU_ITEM_WR_LSB_FIRST);
 		printf("%d) write bits per word\n", SPIDEV_MENU_ITEM_WR_BITS_PER_WORD);
 		printf("%d) write max speed (Hz)\n", SPIDEV_MENU_ITEM_WR_MAX_SPEED_HZ);
-#if KERNEL_OLD
+#if EEPROM_MODE
 		printf("%d) eeprom read\n", SPIDEV_MENU_ITEM_EEPROM_READ);
 		printf("%d) read flash id\n", SPIDEV_MENU_ITEM_FLASHID_READ);
 		printf("%d) eeprom write\n", SPIDEV_MENU_ITEM_EEPROM_WRITE);
 		printf("%d) data read\n", SPIDEV_MENU_ITEM_DATA_READ);
 		printf("%d) data write\n", SPIDEV_MENU_ITEM_DATA_WRITE);
 #else
-		printf("%d) read 4k from flash\n", SPIDEV_MENU_ITEM_READ_4K);
+		printf("%d) read 3k from flash\n", SPIDEV_MENU_ITEM_READ_3K);
 #endif
 		printf("%d) exit\n", SPIDEV_MENU_ITEM_EXIT);
 		printf("select: ");
-		scanf("%u", &select);
+
+		if (scanf("%u", &select) == EOF)
+			exit(EXIT_FAILURE);
 
 		do {
 			c = getchar();
@@ -132,7 +131,8 @@ static int spidev_write_mode(int fd)
 	unsigned int mode;
 
 	printf("spi mode: ");
-	scanf("%u", &mode);
+	if (scanf("%u", &mode) == EOF)
+		exit(EXIT_FAILURE);
 
 	if (mode >= 0 && mode <= 3) {
 		printf("set spi mode to %u\n", mode);
@@ -149,7 +149,8 @@ static int spidev_write_lsb_first(int fd)
 	unsigned int first;
 
 	printf("lsb first: ");
-	scanf("%u", &first);
+	if (scanf("%u", &first) == EOF)
+		exit(EXIT_FAILURE);
 
 	if (first == 0 || first == 1) {
 		printf("set lsb first to %u\n", first);
@@ -166,7 +167,8 @@ static int spidev_write_bits_per_word(int fd)
 	unsigned int bits_per_word;
 
 	printf("bits per word: ");
-	scanf("%u", &bits_per_word);
+	if (scanf("%u", &bits_per_word) == EOF)
+		exit(EXIT_FAILURE);
 
 	if (bits_per_word == 8 || bits_per_word == 16) {
 		printf("set bits per word to %u\n", bits_per_word);
@@ -183,7 +185,8 @@ static int spidev_write_max_speed_hz(int fd)
 	unsigned int hz;
 
 	printf("max speed (Hz): ");
-	scanf("%u", &hz);
+	if (scanf("%u", &hz) == EOF)
+		exit(EXIT_FAILURE);
 
 	if (!(hz % 1000000)) {
 		printf("set max speed hz to %u\n", hz);
@@ -195,7 +198,7 @@ static int spidev_write_max_speed_hz(int fd)
 	return ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &hz);
 }
 
-#if KERNEL_OLD
+#if EEPROM_MODE
 #if 0
 static int spidev_eeprom_read(int fd, unsigned char *rx)
 {
@@ -231,36 +234,37 @@ static int spidev_data_write(int fd, unsigned char *tx, unsigned int txlen)
 	return ioctl(fd, SPI_IOC_DATA_WRITE, buffer);
 }
 #else
-int spidev_read_4k(int fd)
+int spidev_read_3k(int fd)
 {
 	struct spi_ioc_transfer transfer[2];
 	FILE *file;
-	unsigned char buf[SZ_4K];
+	unsigned char buf[SZ_3K];
 
-	memset(buf, 0, SZ_4K);
+	memset(transfer, 0, sizeof(transfer));
+	memset(buf, 0, SZ_3K);
 	buf[0] = 0xb;
 	buf[1] = 0x0;
 	buf[2] = 0x0;
 	buf[3] = 0x0;
 	buf[4] = 0x0;
-	transfer[0].tx_buf = (__u64)((__u32)buf);
+	transfer[0].tx_buf = (__u64)buf;
 	transfer[0].len = 5;
 
-	transfer[1].rx_buf = (__u64)((__u32)buf);
-	transfer[1].len = SZ_4K;
+	transfer[1].rx_buf = (__u64)buf;
+	transfer[1].len = SZ_3K;
 
 	if (ioctl(fd, SPI_IOC_MESSAGE(2), &transfer) < 0) {
 		perror("can't send spi message");
 		return -errno;
 	}
 
-	file = fopen("/tmp/spi_4k", "w");
+	file = fopen("/tmp/spi_3k", "w");
 	if (file) {
-		fwrite(buf, SZ_4K, 1, file);
+		fwrite(buf, SZ_3K, 1, file);
 		fclose(file);
-		printf("read 4k succeeded\n");
+		printf("read 3k succeeded\n");
 	} else {
-		perror("read 4k failed");
+		perror("read 3k failed");
 		return -errno;
 	}
 
@@ -340,7 +344,7 @@ int main(int argc, char *const *argv)
 		case SPIDEV_MENU_ITEM_WR_MAX_SPEED_HZ:
 			ret = spidev_write_max_speed_hz(fd);
 			break;
-#if KERNEL_OLD
+#if EEPROM_MODE
 		case SPIDEV_MENU_ITEM_FLASHID_READ:
 			buffer[0] = 0x9f;
 			ret = spidev_flashid_read(fd, buffer);
@@ -369,8 +373,8 @@ int main(int argc, char *const *argv)
 			}
 			break;
 #else
-		case SPIDEV_MENU_ITEM_READ_4K:
-			spidev_read_4k(fd);
+		case SPIDEV_MENU_ITEM_READ_3K:
+			spidev_read_3k(fd);
 			break;
 #endif
 		case SPIDEV_MENU_ITEM_EXIT:
