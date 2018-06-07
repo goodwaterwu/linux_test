@@ -52,7 +52,7 @@ int spidev_read_3k(int fd)
 		fwrite(buf, SZ_3K, 1, file);
 		fclose(file);
 		printf("read 3k succeeded\n");
-		if (!system("cmp /tmp/spi_3k_1 /tmp/spi_3k_2 > /dev/tty"))
+		if (system("cmp /tmp/spi_3k_1 /tmp/spi_3k_2 > /dev/tty") == -1)
 			exit(EXIT_FAILURE);
 	} else {
 		perror("read 3k failed");
