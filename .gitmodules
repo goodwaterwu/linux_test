@@ -4,3 +4,6 @@
 [submodule "gpio/libgpiod"]
 	path = gpio/libgpiod
 	url = git://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git
+[submodule "uart/linux-serial-test"]
+	path = uart/linux-serial-test
+	url = https://github.com/cbrake/linux-serial-test.git
