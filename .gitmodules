@@ -1,3 +1,6 @@
 [submodule "mtd/mtd-utils"]
 	path = mtd/mtd-utils
 	url = git://git.infradead.org/mtd-utils.git
+[submodule "gpio/libgpiod"]
+	path = gpio/libgpiod
+	url = git://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git
