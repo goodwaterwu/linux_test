@@ -25,7 +25,7 @@ set_timeout()
 
 start_deadlock()
 {
-	./wdt_timeout $1
+	wdt_timeout $1
 }
 
 stop_deadlock()
