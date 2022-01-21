@@ -1,7 +1,6 @@
 #!/bin/sh
 #
 # Test MTD read/write/erase.
-# This script must run with mtd_debug, please ensure mtd_debug exists.
 #
 # author: Victor Wu (victor_wu@bizlinktech.com)
 # version: 20220121
@@ -22,14 +21,17 @@ test_mtd()
 	local mtd_size=$(mtd_debug info $1 | grep 'mtd\.size' | awk '{ print $3 }')
 	local mtd_erasesize=$(mtd_debug info $1 | grep 'mtd\.erasesize' | awk '{ print $3 }')
 	local max_test_size=$((mtd_erasesize * 10))
-	local offset=0
 
 	for i in $(seq $2); do
-		while [ ${mtd_size} -gt 0 ]; do
-			if [ ${max_test_size} -le ${mtd_size} ]; then
+		local remain=${mtd_size}
+		local offset=0
+
+		echo "Loop...$i"
+		while [ ${remain} -gt 0 ]; do
+			if [ ${max_test_size} -le ${remain} ]; then
 				local test_size=${max_test_size}
 			else
-				local test_size=${mtd_size}
+				local test_size=${remain}
 			fi
 
 			mtd_debug read $1 ${offset} ${test_size} /tmp/$(basename $1)
@@ -43,7 +45,7 @@ test_mtd()
 			fi
 
 			offset=$((offset + test_size))
-			mtd_size=$((mtd_size - test_size))
+			remain=$((remain - test_size))
 		done
 	done
 
