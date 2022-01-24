@@ -84,6 +84,6 @@ if [ -n "${dev}" ]; then
 		echo "Test failed!"
 	fi
 else
-	show_help
+	show_help $0
 	exit 1
 fi
